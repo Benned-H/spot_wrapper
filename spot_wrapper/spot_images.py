@@ -3,7 +3,8 @@ import typing
 from collections import namedtuple
 from dataclasses import dataclass
 
-from bosdyn.api import image_pb2
+from bosdyn.api import gripper_camera_param_pb2, image_pb2
+from bosdyn.client.gripper_camera_param import GripperCameraParamClient
 from bosdyn.client.image import (
     ImageClient,
     UnsupportedPixelFormatRequestedError,
@@ -136,21 +137,25 @@ class SpotImages:
         robot: Robot,
         logger: logging.Logger,
         image_client: ImageClient,
+        gripper_cam_param_client: GripperCameraParamClient = None,
         rgb_cameras: bool = True,
         image_quality: ImageQualityConfig = ImageQualityConfig(),
     ) -> None:
-        """Args:
-        robot: Robot object this image module is associated with
-        logger: Logger to use
-        image_client: Image client to use to retrieve images
-        rgb_cameras: If true, the robot model has RGB cameras as opposed to greyscale ones.
-
+        """
+        
+        Args:
+            robot: Robot object this image module is associated with
+            logger: Logger to use
+            image_client: Image client to use to retrieve images
+            gripper_cam_param_client: Gripper Camera Parameter client used to adjust gripper camera settings
+            rgb_cameras: If true, the robot model has RGB cameras as opposed to greyscale ones.
         """
         self._robot = robot
         self._logger = logger
         self._rgb_cameras = rgb_cameras
         self._image_client = image_client
         self._image_quality = image_quality
+        self._gripper_cam_param_client = gripper_cam_param_client
 
         ############################################
         self._camera_image_requests = []
@@ -231,9 +236,11 @@ class SpotImages:
                         else:
                             quality = self._image_quality.robot_image_quality
                     elif camera != "hand":
+
                         self._logger.info(
                             f"Switching {camera}:{image_type} to greyscale image format.",
                         )
+
                         pixel_format = image_pb2.Image.PIXEL_FORMAT_GREYSCALE_U8
                         quality = self._image_quality.robot_image_quality
 
@@ -245,11 +252,11 @@ class SpotImages:
                     quality_percent=quality,
                 )
 
-    def get_rgb_image(
-        self,
-        image_source: str,
-    ) -> typing.Optional[image_pb2.ImageResponse]:
-        """Args:
+
+    def get_rgb_image(self, image_source: str) -> typing.Optional[image_pb2.ImageResponse]:
+        """
+
+        Args:
             image_source: Image source from which the image should be retrieved
 
         Returns:
@@ -405,6 +412,7 @@ class SpotImages:
                 self._logger.error(
                     f"Duplicated camera source for camera {item.camera_name}",
                 )
+
                 return None
             image_types = item.image_types
             if image_types is None:
@@ -418,6 +426,7 @@ class SpotImages:
                     self._logger.error(
                         f"Unexpected camera name '{item.camera_name}' or image type '{image_type}'",
                     )
+
                     return None
                 source_types.append((item.camera_name, image_type))
             cameras_specified.add(item.camera_name)
@@ -443,3 +452,24 @@ class SpotImages:
                 ),
             )
         return result
+
+    def set_gripper_camera_params(
+        self, camera_param_request: gripper_camera_param_pb2.GripperCameraParamRequest
+    ) -> gripper_camera_param_pb2.GripperCameraParamResponse:
+        if not self._robot.has_arm:
+            raise Exception("Gripper camera is not available")
+        else:
+            self._logger.info("Setting Gripper Camera Parameters")
+            response = self._gripper_cam_param_client.set_camera_params(camera_param_request)
+            return response
+
+    def get_gripper_camera_params(
+        self,
+        camera_get_param_request: gripper_camera_param_pb2.GripperCameraGetParamRequest,
+    ) -> gripper_camera_param_pb2.GripperCameraGetParamResponse:
+        if not self._robot.has_arm:
+            raise Exception("Gripper camera is not available")
+        else:
+            self._logger.info("Getting Gripper Camera Parameters")
+            response = self._gripper_cam_param_client.get_camera_params(camera_get_param_request)
+            return response
