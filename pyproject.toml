@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spot_wrapper"
+version = "1.0.0"
+description = "Wrapper for Boston Dynamics Spot SDK"
+requires-python = ">=3.8"
+dependencies = [
+  "bosdyn-client",
+  "bosdyn-api",
+  "bosdyn-mission",
+  "bosdyn-core"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["spot_wrapper*"]
